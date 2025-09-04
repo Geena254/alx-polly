@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/card";
 import { deletePoll } from "@/app/lib/actions/poll-actions";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/app/lib/context/auth-context";
+import router from "next/router";
 
 interface Poll {
   id: string;
@@ -19,6 +21,33 @@ interface Poll {
   created_at: string;
   options: string[];
 }
+
+const { user } = useAuth();
+
+useEffect(() => {
+  // Check if user has admin role
+  const checkAdminAccess = async () => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+      
+    if (error || !data || data.role !== 'admin') {
+      router.push('/polls'); // Redirect non-admins
+    } else {
+      fetchAllPolls();
+    }
+  };
+  
+  checkAdminAccess();
+}, [user]);
 
 export default function AdminPage() {
   const [polls, setPolls] = useState<Poll[]>([]);
@@ -129,3 +158,7 @@ export default function AdminPage() {
     </div>
   );
 }
+function fetchAllPolls() {
+  throw new Error("Function not implemented.");
+}
+

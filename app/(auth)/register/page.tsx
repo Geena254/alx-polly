@@ -27,6 +27,24 @@ export default function RegisterPage() {
       setLoading(false);
       return;
     }
+    
+    // Password strength validation
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      setLoading(false);
+      return;
+    }
+    // Check for complexity requirements
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    
+    if (!(hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar)) {
+      setError('Password must include uppercase, lowercase, numbers, and special characters');
+      setLoading(false);
+      return;
+    }
 
     const result = await register({ name, email, password });
 

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Copy, Share2, Twitter, Facebook, Mail } from "lucide-react";
 import { toast } from "sonner";
+import DOMPurify from "dompurify";
 
 interface VulnerableShareProps {
   pollId: string;
@@ -41,7 +42,9 @@ export default function VulnerableShare({
   };
 
   const shareOnTwitter = () => {
-    const text = encodeURIComponent(`Check out this poll: ${pollTitle}`);
+    // Sanitize the poll title
+    const sanitizedTitle = DOMPurify.sanitize(pollTitle);
+    const text = encodeURIComponent(`Check out this poll: ${sanitizedTitle}`);
     const url = encodeURIComponent(shareUrl);
     window.open(
       `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
