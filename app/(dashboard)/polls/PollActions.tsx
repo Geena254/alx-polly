@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/app/lib/context/auth-context";
 import { Button } from "@/components/ui/button";
-import { deletePoll } from "@/app/lib/actions/poll-actions";
+import { useState } from "react";
 
 interface Poll {
   id: string;
@@ -18,10 +18,27 @@ interface PollActionsProps {
 
 export default function PollActions({ poll }: PollActionsProps) {
   const { user } = useAuth();
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const handleDelete = async () => {
     if (confirm("Are you sure you want to delete this poll?")) {
-      await deletePoll(poll.id);
-      window.location.reload();
+      setIsDeleting(true);
+      try {
+        const response = await fetch(`/api/polls/${poll.id}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          window.location.reload();
+        } else {
+          const error = await response.json();
+          alert(`Failed to delete poll: ${error.error}`);
+        }
+      } catch (error) {
+        alert('Network error occurred while deleting poll');
+      } finally {
+        setIsDeleting(false);
+      }
     }
   };
 
@@ -44,8 +61,13 @@ export default function PollActions({ poll }: PollActionsProps) {
           <Button asChild variant="outline" size="sm">
             <Link href={`/polls/${poll.id}/edit`}>Edit</Link>
           </Button>
-          <Button variant="destructive" size="sm" onClick={handleDelete}>
-            Delete
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDelete}
+            disabled={isDeleting}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
           </Button>
         </div>
       )}

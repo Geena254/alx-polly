@@ -1,10 +1,27 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { getUserPolls } from '@/app/lib/actions/poll-actions';
-import PollActions from './PollActions'; 
+import PollActions from './PollActions';
 
 export default async function PollsPage() {
-  const { polls, error } = await getUserPolls();
+  let polls = [];
+  let error = null;
+
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/polls/user`, {
+      cache: 'no-store', // Ensure fresh data
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch polls');
+    }
+
+    const data = await response.json();
+    polls = data.polls || [];
+    error = data.error;
+  } catch (err) {
+    error = 'Failed to load polls';
+    console.error('Error fetching polls:', err);
+  }
 
   return (
     <div className="space-y-6">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -9,10 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { deletePoll } from "@/app/lib/actions/poll-actions";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/app/lib/context/auth-context";
-import router from "next/router";
 
 interface Poll {
   id: string;
@@ -22,41 +21,37 @@ interface Poll {
   options: string[];
 }
 
-const { user } = useAuth();
-
-useEffect(() => {
-  // Check if user has admin role
-  const checkAdminAccess = async () => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-    
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
-      
-    if (error || !data || data.role !== 'admin') {
-      router.push('/polls'); // Redirect non-admins
-    } else {
-      fetchAllPolls();
-    }
-  };
-  
-  checkAdminAccess();
-}, [user]);
-
 export default function AdminPage() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAllPolls();
-  }, []);
+    // Check if user has admin role
+    const checkAdminAccess = async () => {
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error || !data || data.role !== 'admin') {
+        router.push('/polls'); // Redirect non-admins
+      } else {
+        fetchAllPolls();
+      }
+    };
+
+    checkAdminAccess();
+  }, [user, router]);
 
   const fetchAllPolls = async () => {
     const supabase = createClient();
@@ -74,13 +69,23 @@ export default function AdminPage() {
 
   const handleDelete = async (pollId: string) => {
     setDeleteLoading(pollId);
-    const result = await deletePoll(pollId);
 
-    if (!result.error) {
-      setPolls(polls.filter((poll) => poll.id !== pollId));
+    try {
+      const response = await fetch(`/api/polls/${pollId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setPolls(polls.filter((poll) => poll.id !== pollId));
+      } else {
+        const error = await response.json();
+        alert(`Failed to delete poll: ${error.error}`);
+      }
+    } catch (error) {
+      alert('Network error occurred while deleting poll');
+    } finally {
+      setDeleteLoading(null);
     }
-
-    setDeleteLoading(null);
   };
 
   if (loading) {
@@ -158,7 +163,3 @@ export default function AdminPage() {
     </div>
   );
 }
-function fetchAllPolls() {
-  throw new Error("Function not implemented.");
-}
-

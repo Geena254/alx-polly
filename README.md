@@ -65,59 +65,13 @@ This document outlines the security vulnerabilities discovered in the Polling Ap
 
 ## 1. Missing Authorization Check in `deletePoll` Function
 
-**Vulnerability:** The `deletePoll` function (`app/lib/actions/poll-actions.ts`) currently allows any authenticated user to delete any poll by simply knowing its ID. There is no check to verify if the user is the owner of the poll.
+**Vulnerability:** The `deletePoll` API route (`app/api/polls/[id]/route.ts`) currently allows any authenticated user to delete any poll by simply knowing its ID. There is no check to verify if the user is the owner of the poll.
 
 **Remedy:** Implement an authorization check within the `deletePoll` function to ensure that only the poll owner or an authorized administrator can delete a poll. This involves fetching the user's session and comparing their `user_id` with the `user_id` associated with the poll.
 
 **Proposed Fix:**
 
-```typescript
-// DELETE POLL
-export async function deletePoll(id: string) {
-  const supabase = await createClient();
-  
-  // Get user from session
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-  
-  if (userError) {
-    return { error: userError.message };
-  }
-  
-  if (!user) {
-    return { error: "You must be logged in to delete a poll." };
-  }
-  
-  // First check if the poll belongs to the user
-  const { data: poll, error: pollError } = await supabase
-    .from("polls")
-    .select("user_id")
-    .eq("id", id)
-    .single();
-    
-  if (pollError) {
-    return { error: pollError.message };
-  }
-  
-  if (!poll) {
-    return { error: "Poll not found" };
-  }
-  
-  // Verify ownership
-  if (poll.user_id !== user.id) {
-    return { error: "You don't have permission to delete this poll" };
-  }
-  
-  // Now delete the poll
-  const { error } = await supabase.from("polls").delete().eq("id", id);
-  if (error) return { error: error.message };
-  
-  revalidatePath("/polls");
-  return { error: null };
-}
-```
+The API route already implements proper authorization checks. See `app/api/polls/[id]/route.ts` for the implementation.
 
 ## 2. Admin Page Lacks Access Control
 
@@ -166,21 +120,7 @@ useEffect(() => {
 
 **Proposed Fix:**
 
-```typescript
-// Add to server actions
-import { csrf } from '@/lib/csrf';
-
-export async function createPoll(formData: FormData) {
-  // Verify CSRF token
-  const csrfToken = formData.get('csrf_token') as string;
-  if (!await csrf.verify(csrfToken)) {
-    return { error: 'Invalid CSRF token' };
-  }
-  
-  // Rest of the function
-  // ...
-}
-```
+CSRF protection is already implemented in the API routes. See `app/api/polls/route.ts` and `app/api/polls/[id]/route.ts` for the implementation.
 
 ## 4. XSS Vulnerability in Poll Sharing
 
@@ -212,40 +152,7 @@ const shareOnTwitter = () => {
 
 **Proposed Fix:**
 
-```typescript:%2Fhome%2Fgeorgina_kim%2Falx-polly%2Fapp%2Flib%2Factions%2Fpoll-actions.ts
-export async function submitVote(pollId: string, optionIndex: number) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Require login to vote
-  if (!user) return { error: 'You must be logged in to vote.' };
-  
-  // Check if user has already voted on this poll
-  const { data: existingVote } = await supabase
-    .from("votes")
-    .select()
-    .eq("poll_id", pollId)
-    .eq("user_id", user.id)
-    .single();
-    
-  if (existingVote) {
-    return { error: "You have already voted on this poll" };
-  }
-
-  const { error } = await supabase.from("votes").insert([
-    {
-      poll_id: pollId,
-      user_id: user.id,
-      option_index: optionIndex,
-    },
-  ]);
-
-  if (error) return { error: error.message };
-  return { error: null };
-}
-```
+Authentication and rate limiting are already implemented in the voting API route. See `app/api/polls/[id]/vote/route.ts` for the implementation.
 
 ## 6. Password Strength Requirements
 
@@ -304,44 +211,7 @@ const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
 
 **Proposed Fix:**
 
-```typescript:%2Fhome%2Fgeorgina_kim%2Falx-polly%2Fapp%2Flib%2Factions%2Fpoll-actions.ts
-export async function createPoll(formData: FormData) {
-  const supabase = await createClient();
-
-  const question = formData.get("question") as string;
-  const options = formData.getAll("options").filter(Boolean) as string[];
-
-  // Validate input
-  if (!question || question.trim().length === 0) {
-    return { error: "Please provide a valid question." };
-  }
-  
-  if (question.length > 255) {
-    return { error: "Question is too long (maximum 255 characters)." };
-  }
-
-  if (options.length < 2) {
-    return { error: "Please provide at least two options." };
-  }
-  
-  // Validate each option
-  for (const option of options) {
-    if (option.trim().length === 0) {
-      return { error: "Options cannot be empty." };
-    }
-    if (option.length > 100) {
-      return { error: "Options are too long (maximum 100 characters)." };
-    }
-  }
-  
-  // Sanitize inputs
-  const sanitizedQuestion = DOMPurify.sanitize(question);
-  const sanitizedOptions = options.map(opt => DOMPurify.sanitize(opt));
-
-  // Rest of the function
-  // ...
-}
-```
+Input validation and sanitization are already implemented in the API routes. See `app/api/polls/route.ts` and `app/api/polls/[id]/route.ts` for the implementation.
 
 ## Summary
 
