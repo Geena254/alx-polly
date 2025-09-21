@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { PollResultsChart } from '@/components/poll-results-chart';
+import { QRCodeDisplay } from '@/components/qr-code-display';
 
 // Mock data for a single poll
 const mockPoll = {
@@ -92,20 +94,7 @@ export default function PollDetailPage({ params }: { params: { id: string } }) {
           ) : (
             <div className="space-y-4">
               <h3 className="font-medium">Results:</h3>
-              {poll.options.map((option) => (
-                <div key={option.id} className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span>{option.text}</span>
-                    <span>{getPercentage(option.votes)}% ({option.votes} votes)</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2.5">
-                    <div 
-                      className="bg-blue-600 h-2.5 rounded-full" 
-                      style={{ width: `${getPercentage(option.votes)}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
+              <PollResultsChart data={poll.options.map(option => ({ name: option.text, votes: option.votes }))} />
               <div className="text-sm text-slate-500 pt-2">
                 Total votes: {totalVotes}
               </div>
@@ -120,13 +109,16 @@ export default function PollDetailPage({ params }: { params: { id: string } }) {
 
       <div className="pt-4">
         <h2 className="text-xl font-semibold mb-4">Share this poll</h2>
-        <div className="flex space-x-2">
-          <Button variant="outline" className="flex-1">
-            Copy Link
-          </Button>
-          <Button variant="outline" className="flex-1">
-            Share on Twitter
-          </Button>
+        <div className="flex flex-col items-center space-y-4">
+          <QRCodeDisplay url={`${process.env.NEXT_PUBLIC_BASE_URL}/polls/${params.id}`} size={200} />
+          <div className="flex space-x-2 w-full">
+            <Button variant="outline" className="flex-1">
+              Copy Link
+            </Button>
+            <Button variant="outline" className="flex-1">
+              Share on Twitter
+            </Button>
+          </div>
         </div>
       </div>
     </div>

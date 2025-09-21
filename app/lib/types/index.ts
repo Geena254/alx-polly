@@ -1,62 +1,54 @@
-// User types
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  image?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// Poll types
-export interface PollOption {
-  id: string;
-  text: string;
-  votes: number;
-}
-
 export interface Poll {
   id: string;
-  title: string;
-  description?: string;
-  options: PollOption[];
-  createdBy: string; // User ID
-  createdAt: Date;
-  updatedAt: Date;
-  endDate?: Date;
-  settings: PollSettings;
+  user_id: string;
+  question: string;
+  options: string[];
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+  expires_at?: string;
 }
 
-export interface PollSettings {
-  allowMultipleVotes: boolean;
-  requireAuthentication: boolean;
-}
-
-// Vote types
 export interface Vote {
   id: string;
-  pollId: string;
-  optionId: string;
-  userId?: string; // Optional if anonymous voting is allowed
-  createdAt: Date;
+  poll_id: string;
+  user_id: string;
+  option_index: number;
+  created_at: string;
 }
 
-// Form types
-export interface CreatePollFormData {
-  title: string;
-  description?: string;
-  options: string[];
-  settings: PollSettings;
-  endDate?: string;
-}
-
-export interface LoginFormData {
+export interface User {
+  id: string;
   email: string;
-  password: string;
+  role: 'admin' | 'user';
+  created_at: string;
+  updated_at: string;
 }
 
-export interface RegisterFormData {
-  name: string;
+export interface Comment {
+  id: string;
+  poll_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    email: string;
+  };
+}
+
+export interface PollWithStats extends Poll {
+  vote_counts: number[];
+  total_votes: number;
+  user_vote?: number;
+  comments?: Comment[];
+}
+
+export interface EmailNotification {
+  id: string;
+  user_id: string;
+  poll_id: string;
+  type: 'poll_closing' | 'new_comment' | 'poll_created';
+  sent_at: string;
   email: string;
-  password: string;
 }

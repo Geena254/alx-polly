@@ -1,30 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { createPoll } from "@/app/lib/actions/poll-actions";
+import { useRouter } from "next/navigation";
 
 export default function PollCreateForm() {
   const [options, setOptions] = useState(["", ""]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [csrfToken, setCsrfToken] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    // Fetch CSRF token on component mount
-    const fetchCsrfToken = async () => {
-      try {
-        const response = await fetch('/api/csrf');
-        const data = await response.json();
-        setCsrfToken(data.token);
-      } catch (error) {
-        console.error('Failed to fetch CSRF token:', error);
-      }
-    };
-    fetchCsrfToken();
-  }, []);
+  const router = useRouter();
 
   const handleOptionChange = (idx: number, value: string) => {
     setOptions((opts) => opts.map((opt, i) => (i === idx ? value : opt)));
@@ -43,22 +31,21 @@ export default function PollCreateForm() {
     setIsLoading(true);
 
     try {
-      // Add CSRF token to form data
-      formData.append('csrf_token', csrfToken);
-
-      const response = await fetch('/api/polls', {
-        method: 'POST',
-        body: formData,
+      // Add all options to form data
+      options.forEach(option => {
+        if (option.trim()) {
+          formData.append('options', option.trim());
+        }
       });
 
-      const result = await response.json();
+      const result = await createPoll(formData);
 
-      if (!response.ok) {
-        setError(result.error || 'Failed to create poll');
+      if (result.error) {
+        setError(result.error);
       } else {
         setSuccess(true);
         setTimeout(() => {
-          window.location.href = "/polls";
+          router.push("/polls");
         }, 1200);
       }
     } catch (error) {
@@ -82,9 +69,9 @@ export default function PollCreateForm() {
         {options.map((opt, idx) => (
           <div key={idx} className="flex items-center gap-2 mb-2">
             <Input
-              name="options"
               value={opt}
               onChange={(e) => handleOptionChange(idx, e.target.value)}
+              placeholder={`Option ${idx + 1}`}
               required
             />
             {options.length > 2 && (
@@ -100,9 +87,9 @@ export default function PollCreateForm() {
       </div>
       {error && <div className="text-red-500">{error}</div>}
       {success && <div className="text-green-600">Poll created! Redirecting...</div>}
-      <Button type="submit" disabled={isLoading || !csrfToken}>
+      <Button type="submit" disabled={isLoading}>
         {isLoading ? 'Creating...' : 'Create Poll'}
       </Button>
     </form>
   );
-} 
+}

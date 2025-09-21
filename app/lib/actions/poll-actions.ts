@@ -13,13 +13,6 @@ export async function generateCsrfToken() {
 }
 
 export async function createPoll(formData: FormData) {
-  // Verify CSRF token
-  const csrf_token = formData.get("csrf_token") as string;
-  const csrf_secret = await csrf.secret();
-  if (!csrf.verify(csrf_secret, csrf_token)) {
-    return { error: 'Invalid CSRF token' };
-  }
-
   const supabase = await createClient();
   const question = formData.get("question") as string;
   const options = formData.getAll("options").filter(Boolean) as string[];
@@ -116,6 +109,62 @@ export async function getPollById(id: string) {
 
   if (error) return { poll: null, error: error.message };
   return { poll: data, error: null };
+}
+
+// GET POLL WITH STATISTICS
+export async function getPollWithStats(id: string) {
+  const supabase = await createClient();
+  
+  // Get poll data
+  const { data: poll, error: pollError } = await supabase
+    .from("polls")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (pollError) return { poll: null, error: pollError.message };
+
+  // Get vote counts for each option
+  const { data: votes, error: votesError } = await supabase
+    .from("votes")
+    .select("option_index")
+    .eq("poll_id", id);
+
+  if (votesError) return { poll: null, error: votesError.message };
+
+  // Calculate vote counts
+  const voteCounts = new Array(poll.options.length).fill(0);
+  votes?.forEach((vote) => {
+    if (vote.option_index < voteCounts.length) {
+      voteCounts[vote.option_index]++;
+    }
+  });
+
+  // Check if current user has voted
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  
+  let userVote = undefined;
+  if (user) {
+    const { data: userVoteData } = await supabase
+      .from("votes")
+      .select("option_index")
+      .eq("poll_id", id)
+      .eq("user_id", user.id)
+      .single();
+    
+    userVote = userVoteData?.option_index;
+  }
+
+  const pollWithStats = {
+    ...poll,
+    vote_counts: voteCounts,
+    total_votes: votes?.length || 0,
+    user_vote: userVote,
+  };
+
+  return { poll: pollWithStats, error: null };
 }
 
 // SUBMIT VOTE
