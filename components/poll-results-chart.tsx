@@ -1,7 +1,13 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface PollResultsChartProps {
-  data: { name: string; votes: number }[];
+  data: { 
+    question: string;
+    options: string;
+    totalVotes: number;
+    userVote: number;
+    voteCounts: number;
+   }[];
 }
 
 export function PollResultsChart({ data }: PollResultsChartProps) {

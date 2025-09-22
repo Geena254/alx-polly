@@ -38,6 +38,7 @@ export interface Comment {
 }
 
 export interface PollWithStats extends Poll {
+  profiles: any;
   vote_counts: number[];
   total_votes: number;
   user_vote?: number;

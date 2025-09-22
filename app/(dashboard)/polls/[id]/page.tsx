@@ -1,54 +1,96 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { PollResultsChart } from '@/components/poll-results-chart';
+import CommentsSection from '@/components/comments/comments-section';
 import { QRCodeDisplay } from '@/components/qr-code-display';
-
-// Mock data for a single poll
-const mockPoll = {
-  id: '1',
-  title: 'Favorite Programming Language',
-  description: 'What programming language do you prefer to use?',
-  options: [
-    { id: '1', text: 'JavaScript', votes: 15 },
-    { id: '2', text: 'Python', votes: 12 },
-    { id: '3', text: 'Java', votes: 8 },
-    { id: '4', text: 'C#', votes: 5 },
-    { id: '5', text: 'Go', votes: 2 },
-  ],
-  totalVotes: 42,
-  createdAt: '2023-10-15',
-  createdBy: 'John Doe',
-};
+import { sendPollClosingEmail } from '@/app/lib/utils/email';
+import { PollWithStats } from '@/app/lib/types';
 
 export default function PollDetailPage({ params }: { params: { id: string } }) {
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [poll, setPoll] = useState<PollWithStats | null>(null);
+  const [loadingPoll, setLoadingPoll] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [hasVoted, setHasVoted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // In a real app, you would fetch the poll data based on the ID
-  const poll = mockPoll;
-  const totalVotes = poll.options.reduce((sum, option) => sum + option.votes, 0);
+  const fetchPoll = async () => {
+    setLoadingPoll(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/polls/${params.id}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch poll");
+      }
+      setPoll(data.poll);
 
-  const handleVote = () => {
-    if (!selectedOption) return;
-    
+      // Check for poll expiration and send email if applicable
+      if (data.poll.expires_at && new Date(data.poll.expires_at) < new Date()) {
+        // In a real app, you'd likely have a more robust way to get the recipient email
+        // For now, we'll use a placeholder or the user's email if available
+        const recipientEmail = data.poll.profiles?.email || "admin@example.com";
+        sendPollClosingEmail(data.poll, recipientEmail);
+      }
+
+    } catch (err: any) {
+      setError(err.message);
+    }
+    setLoadingPoll(false);
+  };
+
+  useEffect(() => {
+    fetchPoll();
+  }, [params.id]);
+
+  if (loadingPoll) {
+    return <div className="text-center py-8">Loading poll...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-500">Error: {error}</div>;
+  }
+
+  if (!poll) {
+    return <div className="text-center py-8">Poll not found.</div>;
+  }
+
+  const totalVotes = poll.total_votes || 0;
+
+  const handleVote = async () => {
+    if (selectedOption === null) return;
+
     setIsSubmitting(true);
-    
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch(`/api/polls/${params.id}/vote`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ optionIndex: selectedOption }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to submit vote");
+      }
       setHasVoted(true);
-      setIsSubmitting(false);
-    }, 1000);
+      fetchPoll(); // Re-fetch poll to update results
+    } catch (err: any) {
+      setError(err.message);
+    }
+    setIsSubmitting(false);
   };
 
   const getPercentage = (votes: number) => {
     if (totalVotes === 0) return 0;
     return Math.round((votes / totalVotes) * 100);
   };
+
+  const isPollExpired = poll.expires_at && new Date(poll.expires_at) < new Date();
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -68,33 +110,41 @@ export default function PollDetailPage({ params }: { params: { id: string } }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">{poll.title}</CardTitle>
-          <CardDescription>{poll.description}</CardDescription>
+          <CardTitle className="text-2xl">{poll.question}</CardTitle>
+          {isPollExpired && (
+            <CardDescription className="text-red-500">This poll has expired.</CardDescription>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
-          {!hasVoted ? (
+          {!hasVoted && !isPollExpired ? (
             <div className="space-y-3">
-              {poll.options.map((option) => (
-                <div 
-                  key={option.id} 
-                  className={`p-3 border rounded-md cursor-pointer transition-colors ${selectedOption === option.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-slate-50'}`}
-                  onClick={() => setSelectedOption(option.id)}
+              {poll.options.map((option, index) => (
+                <div
+                  key={index}
+                  className={`p-3 border rounded-md cursor-pointer transition-colors ${selectedOption === index ? "border-blue-500 bg-blue-50" : "hover:bg-slate-50"}`}
+                  onClick={() => setSelectedOption(index)}
                 >
-                  {option.text}
+                  {option}
                 </div>
               ))}
-              <Button 
-                onClick={handleVote} 
-                disabled={!selectedOption || isSubmitting} 
+              <Button
+                onClick={handleVote}
+                disabled={selectedOption === null || isSubmitting}
                 className="mt-4"
               >
-                {isSubmitting ? 'Submitting...' : 'Submit Vote'}
+                {isSubmitting ? "Submitting..." : "Submit Vote"}
               </Button>
             </div>
           ) : (
             <div className="space-y-4">
               <h3 className="font-medium">Results:</h3>
-              <PollResultsChart data={poll.options.map(option => ({ name: option.text, votes: option.votes }))} />
+              <PollResultsChart
+                question={poll.question}
+                options={poll.options}
+                voteCounts={poll.vote_counts || []}
+                totalVotes={totalVotes}
+                userVote={poll.user_vote}
+              />
               <div className="text-sm text-slate-500 pt-2">
                 Total votes: {totalVotes}
               </div>
@@ -102,10 +152,12 @@ export default function PollDetailPage({ params }: { params: { id: string } }) {
           )}
         </CardContent>
         <CardFooter className="text-sm text-slate-500 flex justify-between">
-          <span>Created by {poll.createdBy}</span>
-          <span>Created on {new Date(poll.createdAt).toLocaleDateString()}</span>
+          <span>Created by {poll.profiles?.email || "Unknown"}</span>
+          <span>Created on {new Date(poll.created_at).toLocaleDateString()}</span>
         </CardFooter>
       </Card>
+
+      <CommentsSection pollId={params.id} />
 
       <div className="pt-4">
         <h2 className="text-xl font-semibold mb-4">Share this poll</h2>

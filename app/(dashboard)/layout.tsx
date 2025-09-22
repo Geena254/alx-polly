@@ -14,6 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/app/lib/context/auth-context";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Menu } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, signOut, loading } = useAuth();
@@ -61,9 +63,29 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             </Link>
           </nav>
           <div className="flex items-center space-x-4">
-            <Button asChild>
+            <Button asChild className="hidden md:inline-flex">
               <Link href="/create">Create Poll</Link>
             </Button>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden">
+                  <Menu className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left">
+                <nav className="flex flex-col gap-6 text-lg font-medium mt-10">
+                  <Link href="/polls" className="hover:text-slate-900">
+                    My Polls
+                  </Link>
+                  <Link href="/create" className="hover:text-slate-900">
+                    Create Poll
+                  </Link>
+                  <Button asChild>
+                    <Link href="/create">Create Poll</Link>
+                  </Button>
+                </nav>
+              </SheetContent>
+            </Sheet>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
